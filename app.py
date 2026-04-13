@@ -1,68 +1,79 @@
 import streamlit as st
 import numpy as np
-import plotly.graph_objects as go
+import plotly.express as px
+import pandas as pd
 
 # --- Page Configuration ---
-st.set_page_config(page_title="Algorithm Performance Lab", layout="wide")
+st.set_page_config(page_title="Algorithm Comparison Lab", layout="wide")
 
-st.title("📈 Sorting Algorithm Complexity Dashboard")
+st.title("📊 Comparing Sorting Algorithm 'Costs' (N=100)")
 st.markdown("""
-This dashboard visualizes the **mathematical efficiency** of sorting algorithms. 
-Instead of watching bars move, we are looking at how much "work" a computer does as the input size grows.
+This dashboard compares the **work required** by different algorithms to sort a fixed-size list of **100 items**.
+Instead of watching growth curves, we are mapping the theoretical Big O complexity to a single numerical "operation cost"
+to create a direct comparison.
+
+To make the vast difference between $O(n)$ and $O(n^2)$ viewable, this graph uses a **Logarithmic Scale** for the Y-axis.
 """)
 
-# --- Sidebar ---
-st.sidebar.header("Select Algorithm")
-algo = st.sidebar.selectbox(
-    "Choose an Algorithm",
-    ["Bubble Sort", "Selection Sort", "Insertion Sort", "Merge Sort", "Quick Sort", "Heap Sort"]
+# --- 1. Define Representative Costs for a Fixed N=100 ---
+# This turns the mathematical abstraction into a number for comparison.
+N = 100
+# O(n) is approximately N operations
+COST_N = N
+# O(n log2 n) is approximately N * log2(N)
+COST_N_LOGN = round(N * np.log2(N))  # ~664 for N=100
+# O(n^2) is approximately N^2 operations
+COST_N_SQUARED = N**2 # 10,000 for N=100
+
+# --- 2. Map Algorithms to Specific Cases and Costs ---
+# Define a dictionary for each algo: mapping case -> complexity class -> cost
+algorithm_data = {
+    "Bubble Sort":     {"Best": COST_N,         "Average": COST_N_SQUARED,  "Worst": COST_N_SQUARED},
+    "Selection Sort":  {"Best": COST_N_SQUARED, "Average": COST_N_SQUARED,  "Worst": COST_N_SQUARED},
+    "Insertion Sort":  {"Best": COST_N,         "Average": COST_N_SQUARED,  "Worst": COST_N_SQUARED},
+    "Merge Sort":      {"Best": COST_N_LOGN,    "Average": COST_N_LOGN,     "Worst": COST_N_LOGN},
+    "Quick Sort":      {"Best": COST_N_LOGN,    "Average": COST_N_LOGN,     "Worst": COST_N_SQUARED},
+    "Heap Sort":       {"Best": COST_N_LOGN,    "Average": COST_N_LOGN,     "Worst": COST_N_LOGN}
+}
+
+# --- 3. Create a DataFrame for Plotly Express ---
+plot_data = []
+for algo_name, cases in algorithm_data.items():
+    for case_type, cost_value in cases.items():
+        plot_data.append({
+            "Algorithm": algo_name,
+            "Scenario": case_type,
+            "Operations (Cost)": cost_value
+        })
+
+df = pd.DataFrame(plot_data)
+
+# --- 4. Plot the Clustered Bar Chart ---
+color_map = {
+    'Best':    '#28a745',  # Green
+    'Average': '#fd7e14',  # Orange
+    'Worst':   '#dc3545'   # Red
+}
+
+fig = px.bar(
+    df, 
+    x="Algorithm", 
+    y="Operations (Cost)", 
+    color="Scenario",
+    barmode="group",
+    color_discrete_map=color_map,
+    title=f"Theoretical Operation Cost for Sorting 100 Random Items",
+    log_y=True,  # IMPORTANT: Uses logarithmic scale
+    text_auto='.2s', # Show values above bars
+    template="plotly_white"
 )
 
-# --- Complexity Data Generation ---
-n = np.linspace(1, 100, 100)
-
-def get_complexities(name):
-    # O(n^2) = n**2, O(n log n) = n * log2(n), O(n) = n
-    if name == "Bubble Sort":
-        return n, n**2, n**2, "Optimized Bubble Sort can reach O(n) if data is already sorted."
-    elif name == "Selection Sort":
-        return n**2, n**2, n**2, "Selection sort always scans the entire remaining list, so all cases are O(n²)."
-    elif name == "Insertion Sort":
-        return n, n**2, n**2, "Very efficient for nearly sorted data (O(n))."
-    elif name == "Merge Sort":
-        val = n * np.log2(n)
-        return val, val, val, "Merge Sort is extremely consistent. It always takes O(n log n)."
-    elif name == "Quick Sort":
-        avg_best = n * np.log2(n)
-        return avg_best, avg_best, n**2, "Quick Sort is usually fast, but hits O(n²) if the pivot is poorly chosen."
-    elif name == "Heap Sort":
-        val = n * np.log2(n)
-        return val, val, val, "Heap Sort is guaranteed O(n log n) and doesn't use extra memory."
-
-best, avg, worst, desc = get_complexities(algo)
-
-# --- Plotting ---
-fig = go.Figure()
-
-# Worst Case - Red
-fig.add_trace(go.Scatter(x=n, y=worst, name='Worst Case',
-                         line=dict(color='#dc3545', width=4)))
-
-# Average Case - Orange
-fig.add_trace(go.Scatter(x=n, y=avg, name='Average Case',
-                         line=dict(color='#fd7e14', width=4, dash='dash')))
-
-# Best Case - Green
-fig.add_trace(go.Scatter(x=n, y=best, name='Best Case',
-                         line=dict(color='#28a745', width=4, dash='dot')))
-
 fig.update_layout(
-    title=f"Time Complexity Growth: {algo}",
-    xaxis_title="Input Size (Number of Items)",
-    yaxis_title="Operations (Time Taken)",
-    legend_title="Scenarios",
-    hovermode="x unified",
-    template="plotly_white",
+    xaxis_title="Sorting Algorithm",
+    yaxis_title="Operations (Logarithmic Scale)",
+    yaxis_tickformat="s",
+    legend_title="Complexity Case",
+    font=dict(size=14),
     height=600
 )
 
@@ -73,21 +84,19 @@ with col1:
     st.plotly_chart(fig, use_container_width=True)
 
 with col2:
-    st.subheader("Analysis")
-    st.info(desc)
-    st.write("**Color Guide:**")
-    st.success("🟢 **Green (Best):** Minimum time needed.")
-    st.warning("🟠 **Orange (Avg):** Usual time expected.")
-    st.error("🔴 **Red (Worst):** Maximum time possible.")
+    st.subheader("Analysis & Interpretation")
+    st.info("""
+    **Understanding the Log Scale (Y-Axis):**
+    On a linear scale, a cost of 100 ($O(n)$) is a tiny speck next to 10,000 ($O(n^2)$). We use a logarithmic scale to make all the bars viewable. Equal steps on the Y-axis represent a factor of 10x growth.
+    """)
+    st.write("**Key Observations:**")
+    st.success("🟢 **Green (Best):** Shows the lowest bar (cheapest). Note how Selection sort has no low bar.")
+    st.warning("🟠 **Orange (Avg):** Notice how some algorithms (Merge, Heap) are identical to their worst case.")
+    st.error("🔴 **Red (Worst):** Shows the theoretical maximum cost. This is why O(n log n) is preferred for large data.")
 
-st.divider()
-
-# --- Technical Comparison Table ---
-st.subheader("Quick Reference Table")
-comparison_data = {
-    "Algorithm": ["Bubble", "Selection", "Insertion", "Merge", "Quick", "Heap"],
-    "Best": ["O(n)", "O(n²)", "O(n)", "O(n log n)", "O(n log n)", "O(n log n)"],
-    "Average": ["O(n²)", "O(n²)", "O(n²)", "O(n log n)", "O(n log n)", "O(n log n)"],
-    "Worst": ["O(n²)", "O(n²)", "O(n²)", "O(n log n)", "O(n²)", "O(n log n)"]
-}
-st.table(comparison_data)
+st.markdown("---")
+st.subheader("Technical Reference: Complexity to Cost Mapping (for N=100)")
+col3, col4, col5 = st.columns(3)
+with col3: st.metric("$O(n)$ Cost (Best Case)", COST_N)
+with col4: st.metric("$O(n \log n)$ Cost (Average Case)", COST_N_LOGN)
+with col5: st.metric("$O(n^2)$ Cost (Worst Case)", COST_N_SQUARED)
