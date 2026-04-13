@@ -1,102 +1,105 @@
 import streamlit as st
-import numpy as np
-import plotly.express as px
 import pandas as pd
+import plotly.express as px
 
 # --- Page Configuration ---
-st.set_page_config(page_title="Algorithm Comparison Lab", layout="wide")
+st.set_page_config(page_title="Algorithm Complexity Lab", layout="wide")
 
-st.title("📊 Comparing Sorting Algorithm 'Costs' (N=100)")
+st.title("📊 Sorting Algorithm Complexity: Case-by-Case Analysis")
 st.markdown("""
-This dashboard compares the **work required** by different algorithms to sort a fixed-size list of **100 items**.
-Instead of watching growth curves, we are mapping the theoretical Big O complexity to a single numerical "operation cost"
-to create a direct comparison.
-
-To make the vast difference between $O(n)$ and $O(n^2)$ viewable, this graph uses a **Logarithmic Scale** for the Y-axis.
+This dashboard shows the **specific Time Complexity** for each sorting algorithm across its Best, Average, and Worst scenarios.
+The height of the bars represents the **Growth Rate** (how much slower it gets as data grows).
 """)
 
-# --- 1. Define Representative Costs for a Fixed N=100 ---
-# This turns the mathematical abstraction into a number for comparison.
-N = 100
-# O(n) is approximately N operations
-COST_N = N
-# O(n log2 n) is approximately N * log2(N)
-COST_N_LOGN = round(N * np.log2(N))  # ~664 for N=100
-# O(n^2) is approximately N^2 operations
-COST_N_SQUARED = N**2 # 10,000 for N=100
-
-# --- 2. Map Algorithms to Specific Cases and Costs ---
-# Define a dictionary for each algo: mapping case -> complexity class -> cost
-algorithm_data = {
-    "Bubble Sort":     {"Best": COST_N,         "Average": COST_N_SQUARED,  "Worst": COST_N_SQUARED},
-    "Selection Sort":  {"Best": COST_N_SQUARED, "Average": COST_N_SQUARED,  "Worst": COST_N_SQUARED},
-    "Insertion Sort":  {"Best": COST_N,         "Average": COST_N_SQUARED,  "Worst": COST_N_SQUARED},
-    "Merge Sort":      {"Best": COST_N_LOGN,    "Average": COST_N_LOGN,     "Worst": COST_N_LOGN},
-    "Quick Sort":      {"Best": COST_N_LOGN,    "Average": COST_N_LOGN,     "Worst": COST_N_SQUARED},
-    "Heap Sort":       {"Best": COST_N_LOGN,    "Average": COST_N_LOGN,     "Worst": COST_N_LOGN}
+# --- 1. Define Specific Complexity Data ---
+# Map: Algo -> Case -> (Notation, Numerical Weight for Graph)
+# Weights: O(n)=1, O(n log n)=2, O(n²)=3
+data_map = {
+    "Bubble Sort": {
+        "Best": ("O(n)", 1), 
+        "Average": ("O(n²)", 3), 
+        "Worst": ("O(n²)", 3)
+    },
+    "Selection Sort": {
+        "Best": ("O(n²)", 3), 
+        "Average": ("O(n²)", 3), 
+        "Worst": ("O(n²)", 3)
+    },
+    "Insertion Sort": {
+        "Best": ("O(n)", 1), 
+        "Average": ("O(n²)", 3), 
+        "Worst": ("O(n²)", 3)
+    },
+    "Merge Sort": {
+        "Best": ("O(n log n)", 2), 
+        "Average": ("O(n log n)", 2), 
+        "Worst": ("O(n log n)", 2)
+    },
+    "Quick Sort": {
+        "Best": ("O(n log n)", 2), 
+        "Average": ("O(n log n)", 2), 
+        "Worst": ("O(n²)", 3)
+    },
+    "Heap Sort": {
+        "Best": ("O(n log n)", 2), 
+        "Average": ("O(n log n)", 2), 
+        "Worst": ("O(n log n)", 2)
+    }
 }
 
-# --- 3. Create a DataFrame for Plotly Express ---
-plot_data = []
-for algo_name, cases in algorithm_data.items():
-    for case_type, cost_value in cases.items():
-        plot_data.append({
-            "Algorithm": algo_name,
+# --- 2. Format Data for Plotly ---
+records = []
+for algo, cases in data_map.items():
+    for case_type, (notation, weight) in cases.items():
+        records.append({
+            "Algorithm": algo,
             "Scenario": case_type,
-            "Operations (Cost)": cost_value
+            "Complexity": notation,
+            "Growth Rate": weight
         })
 
-df = pd.DataFrame(plot_data)
+df = pd.DataFrame(records)
 
-# --- 4. Plot the Clustered Bar Chart ---
-color_map = {
-    'Best':    '#28a745',  # Green
-    'Average': '#fd7e14',  # Orange
-    'Worst':   '#dc3545'   # Red
-}
-
+# --- 3. Create the Visualization ---
 fig = px.bar(
-    df, 
-    x="Algorithm", 
-    y="Operations (Cost)", 
+    df,
+    x="Algorithm",
+    y="Growth Rate",
     color="Scenario",
     barmode="group",
-    color_discrete_map=color_map,
-    title=f"Theoretical Operation Cost for Sorting 100 Random Items",
-    log_y=True,  # IMPORTANT: Uses logarithmic scale
-    text_auto='.2s', # Show values above bars
-    template="plotly_white"
+    text="Complexity",  # This puts the specific O() on the bar!
+    color_discrete_map={'Best': '#28a745', 'Average': '#fd7e14', 'Worst': '#dc3545'},
+    title="Comparison of Complexity Classes"
 )
 
 fig.update_layout(
-    xaxis_title="Sorting Algorithm",
-    yaxis_title="Operations (Logarithmic Scale)",
-    yaxis_tickformat="s",
-    legend_title="Complexity Case",
-    font=dict(size=14),
-    height=600
+    yaxis=dict(
+        tickmode='array',
+        tickvals=[1, 2, 3],
+        ticktext=['Linear: O(n)', 'Log-Linear: O(n log n)', 'Quadratic: O(n²)'],
+        title="Complexity Class (Higher is Slower)"
+    ),
+    height=600,
+    template="plotly_white"
 )
+fig.update_traces(textposition='outside')
 
-# --- Display Layout ---
-col1, col2 = st.columns([3, 1])
+# --- 4. Display Layout ---
+st.plotly_chart(fig, use_container_width=True)
 
-with col1:
-    st.plotly_chart(fig, use_container_width=True)
+st.subheader("📋 Detailed Complexity Reference Table")
+# Format a clean table for the user
+table_df = pd.DataFrame({
+    "Algorithm": list(data_map.keys()),
+    "Best Case": [data_map[a]["Best"][0] for a in data_map],
+    "Average Case": [data_map[a]["Average"][0] for a in data_map],
+    "Worst Case": [data_map[a]["Worst"][0] for a in data_map]
+})
+st.table(table_df)
 
-with col2:
-    st.subheader("Analysis & Interpretation")
-    st.info("""
-    **Understanding the Log Scale (Y-Axis):**
-    On a linear scale, a cost of 100 ($O(n)$) is a tiny speck next to 10,000 ($O(n^2)$). We use a logarithmic scale to make all the bars viewable. Equal steps on the Y-axis represent a factor of 10x growth.
-    """)
-    st.write("**Key Observations:**")
-    st.success("🟢 **Green (Best):** Shows the lowest bar (cheapest). Note how Selection sort has no low bar.")
-    st.warning("🟠 **Orange (Avg):** Notice how some algorithms (Merge, Heap) are identical to their worst case.")
-    st.error("🔴 **Red (Worst):** Shows the theoretical maximum cost. This is why O(n log n) is preferred for large data.")
-
-st.markdown("---")
-st.subheader("Technical Reference: Complexity to Cost Mapping (for N=100)")
-col3, col4, col5 = st.columns(3)
-with col3: st.metric("$O(n)$ Cost (Best Case)", COST_N)
-with col4: st.metric("$O(n \log n)$ Cost (Average Case)", COST_N_LOGN)
-with col5: st.metric("$O(n^2)$ Cost (Worst Case)", COST_N_SQUARED)
+st.info("""
+**How to read this chart:**
+* **Green Bars (O(n)):** The algorithm is 'efficient' and only looks at each item once.
+* **Orange Bars (O(n log n)):** The algorithm uses 'divide and conquer' to stay fast even with large data.
+* **Red Bars (O(n²)):** The algorithm is 'heavy' because it compares almost every item to every other item.
+""")
