@@ -1,106 +1,93 @@
 import streamlit as st
-import random
-import time
+import numpy as np
 import plotly.graph_objects as go
 
-# --- Page Config ---
-st.set_page_config(page_title="Algorithm Lab 2.0", layout="wide")
+# --- Page Configuration ---
+st.set_page_config(page_title="Algorithm Performance Lab", layout="wide")
 
-# --- Sorting Logic with Color Tracking ---
-def bubble_sort(arr):
-    n = len(arr)
-    for i in range(n):
-        for j in range(0, n - i - 1):
-            # Highlight bars being compared (Red)
-            colors = ['#636EFA'] * len(arr)
-            colors[j] = colors[j+1] = '#EF553B' 
-            if arr[j] > arr[j + 1]:
-                arr[j], arr[j + 1] = arr[j + 1], arr[j]
-            yield arr, colors
-        # Mark the end as sorted (Green)
-        # (Simplified coloring for animation)
+st.title("📈 Sorting Algorithm Complexity Dashboard")
+st.markdown("""
+This dashboard visualizes the **mathematical efficiency** of sorting algorithms. 
+Instead of watching bars move, we are looking at how much "work" a computer does as the input size grows.
+""")
 
-def insertion_sort(arr):
-    for i in range(1, len(arr)):
-        key = arr[i]
-        j = i - 1
-        while j >= 0 and key < arr[j]:
-            colors = ['#636EFA'] * len(arr)
-            colors[j+1] = '#EF553B' # Active
-            arr[j + 1] = arr[j]
-            j -= 1
-            yield arr, colors
-        arr[j + 1] = key
-        yield arr, ['#00CC96'] * len(arr)
+# --- Sidebar ---
+st.sidebar.header("Select Algorithm")
+algo = st.sidebar.selectbox(
+    "Choose an Algorithm",
+    ["Bubble Sort", "Selection Sort", "Insertion Sort", "Merge Sort", "Quick Sort", "Heap Sort"]
+)
 
-def quick_sort(arr, start, end):
-    if start >= end: return
-    pivot = arr[end]
-    p_idx = start
-    for i in range(start, end):
-        colors = ['#636EFA'] * len(arr)
-        colors[end] = '#AB63FA' # Pivot (Purple)
-        colors[i] = '#EF553B' # Comparing
-        if arr[i] < pivot:
-            arr[i], arr[p_idx] = arr[p_idx], arr[i]
-            p_idx += 1
-        yield arr, colors
-    arr[end], arr[p_idx] = arr[p_idx], arr[end]
-    yield arr, colors
-    yield from quick_sort(arr, start, p_idx - 1)
-    yield from quick_sort(arr, p_idx + 1, end)
+# --- Complexity Data Generation ---
+n = np.linspace(1, 100, 100)
 
-# (Other algorithms follow similar yield patterns...)
+def get_complexities(name):
+    # O(n^2) = n**2, O(n log n) = n * log2(n), O(n) = n
+    if name == "Bubble Sort":
+        return n, n**2, n**2, "Optimized Bubble Sort can reach O(n) if data is already sorted."
+    elif name == "Selection Sort":
+        return n**2, n**2, n**2, "Selection sort always scans the entire remaining list, so all cases are O(n²)."
+    elif name == "Insertion Sort":
+        return n, n**2, n**2, "Very efficient for nearly sorted data (O(n))."
+    elif name == "Merge Sort":
+        val = n * np.log2(n)
+        return val, val, val, "Merge Sort is extremely consistent. It always takes O(n log n)."
+    elif name == "Quick Sort":
+        avg_best = n * np.log2(n)
+        return avg_best, avg_best, n**2, "Quick Sort is usually fast, but hits O(n²) if the pivot is poorly chosen."
+    elif name == "Heap Sort":
+        val = n * np.log2(n)
+        return val, val, val, "Heap Sort is guaranteed O(n log n) and doesn't use extra memory."
 
-# --- Dashboard Layout ---
-st.title("🧪 Visual Algorithm Laboratory")
+best, avg, worst, desc = get_complexities(algo)
 
-col1, col2 = st.columns([1, 3])
+# --- Plotting ---
+fig = go.Figure()
+
+# Worst Case - Red
+fig.add_trace(go.Scatter(x=n, y=worst, name='Worst Case',
+                         line=dict(color='#dc3545', width=4)))
+
+# Average Case - Orange
+fig.add_trace(go.Scatter(x=n, y=avg, name='Average Case',
+                         line=dict(color='#fd7e14', width=4, dash='dash')))
+
+# Best Case - Green
+fig.add_trace(go.Scatter(x=n, y=best, name='Best Case',
+                         line=dict(color='#28a745', width=4, dash='dot')))
+
+fig.update_layout(
+    title=f"Time Complexity Growth: {algo}",
+    xaxis_title="Input Size (Number of Items)",
+    yaxis_title="Operations (Time Taken)",
+    legend_title="Scenarios",
+    hovermode="x unified",
+    template="plotly_white",
+    height=600
+)
+
+# --- Display Layout ---
+col1, col2 = st.columns([3, 1])
 
 with col1:
-    algo = st.selectbox("Select Algorithm", ["Bubble Sort", "Insertion Sort", "Quick Sort"])
-    size = st.slider("Data Size", 10, 50, 20)
-    speed = st.select_slider("Speed", options=[0.5, 0.1, 0.01], value=0.1)
-    
-    st.info("""
-    **Color Key:**
-    - 🔵 **Blue**: Unsorted
-    - 🔴 **Red**: Currently comparing/moving
-    - 🟣 **Purple**: Pivot point (Quick Sort)
-    - 🟢 **Green**: Completed
-    """)
+    st.plotly_chart(fig, use_container_width=True)
 
-if 'data' not in st.session_state or st.button("New Data"):
-    st.session_state.data = random.sample(range(1, 100), size)
+with col2:
+    st.subheader("Analysis")
+    st.info(desc)
+    st.write("**Color Guide:**")
+    st.success("🟢 **Green (Best):** Minimum time needed.")
+    st.warning("🟠 **Orange (Avg):** Usual time expected.")
+    st.error("🔴 **Red (Worst):** Maximum time possible.")
 
-plot_spot = st.empty()
+st.divider()
 
-def update_plot(arr, colors):
-    fig = go.Figure(go.Bar(
-        x=list(range(len(arr))), 
-        y=arr, 
-        marker_color=colors
-    ))
-    fig.update_layout(
-        margin=dict(l=20, r=20, t=20, b=20),
-        height=400,
-        xaxis=dict(visible=False),
-        yaxis=dict(visible=False)
-    )
-    plot_spot.plotly_chart(fig, use_container_width=True)
-
-# Initial Plot
-update_plot(st.session_state.data, ['#636EFA'] * size)
-
-if st.button("Start Animation"):
-    data = st.session_state.data.copy()
-    if algo == "Bubble Sort": gen = bubble_sort(data)
-    elif algo == "Insertion Sort": gen = insertion_sort(data)
-    else: gen = quick_sort(data, 0, len(data)-1)
-
-    for updated_arr, current_colors in gen:
-        update_plot(updated_arr, current_colors)
-        time.sleep(speed)
-    
-    # Final Green state
-    update_plot(data, ['#00CC96'] * len(data))
+# --- Technical Comparison Table ---
+st.subheader("Quick Reference Table")
+comparison_data = {
+    "Algorithm": ["Bubble", "Selection", "Insertion", "Merge", "Quick", "Heap"],
+    "Best": ["O(n)", "O(n²)", "O(n)", "O(n log n)", "O(n log n)", "O(n log n)"],
+    "Average": ["O(n²)", "O(n²)", "O(n²)", "O(n log n)", "O(n log n)", "O(n log n)"],
+    "Worst": ["O(n²)", "O(n²)", "O(n²)", "O(n log n)", "O(n²)", "O(n log n)"]
+}
+st.table(comparison_data)
